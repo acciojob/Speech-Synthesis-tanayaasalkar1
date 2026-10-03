@@ -3,9 +3,9 @@ const synth = window.speechSynthesis;
 let msg;
 let voices = [];
 let isSpeaking = false;
+let noVoicesAlertShown = false;
 
 const voicesDropdown = document.querySelector('[name="voice"]');
-const options = document.querySelectorAll('[type="range"], [name="text"]');
 const speakButton = document.querySelector('#speak');
 const stopButton = document.querySelector('#stop');
 const textArea = document.querySelector('[name="text"]');
@@ -42,10 +42,14 @@ function populateVoices() {
   if (defaultIndex !== -1) {
     voicesDropdown.value = String(defaultIndex);
   }
+
+  noVoicesAlertShown = false;
 }
 
-// Fetch voices when available
+// Fetch voices on page load
 populateVoices();
+
+// Fetch voices when they become available
 synth.addEventListener("voiceschanged", populateVoices);
 
 // Set selected voice
@@ -62,6 +66,7 @@ function speak() {
   const text = textArea.value;
 
   if (!text.trim()) {
+    alert("Please enter some text!");
     return;
   }
 
@@ -70,52 +75,68 @@ function speak() {
     populateVoices();
 
     if (voices.length === 0) {
+      if (!noVoicesAlertShown) {
+        alert("No voices available. Please try again later.");
+        noVoicesAlertShown = true;
+      }
       return;
     }
   }
 
-  // Stop previous speech before restarting
+  // Stop previous speech
   synth.cancel();
 
-  // Create a fresh utterance with current settings
+  // Create a new utterance
   msg = new SpeechSynthesisUtterance(text);
 
+  // Set rate and pitch
   msg.rate = Number(rateSlider.value);
   msg.pitch = Number(pitchSlider.value);
 
+  // Set selected voice
   setVoice();
 
+  // Speech completed
   msg.onend = () => {
     isSpeaking = false;
   };
 
-  msg.onerror = () => {
+  // Handle speech errors
+  msg.onerror = (event) => {
     isSpeaking = false;
+    if (event.error !== "canceled" && event.error !== "interrupted") {
+      alert("Speech error: " + event.error);
+    }
   };
 
+  // Start speaking
   synth.speak(msg);
   isSpeaking = true;
 }
 
-// Stop speech immediately
+// Stop speech
 function stop() {
   synth.cancel();
   isSpeaking = false;
 }
 
-// Update settings while speaking
+// Update rate and pitch while speaking
 function setOption() {
   if (isSpeaking) {
     speak();
   }
 }
 
-// Event listeners
+// Speak button
 speakButton.addEventListener("click", speak);
+
+// Stop button
 stopButton.addEventListener("click", stop);
 
-// Update pitch and rate dynamically
+// Rate slider
 rateSlider.addEventListener("input", setOption);
+
+// Pitch slider
 pitchSlider.addEventListener("input", setOption);
 
 // Change voice during speech
