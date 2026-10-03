@@ -1,21 +1,35 @@
-// Your script here.
 
 const synth = window.speechSynthesis;
-let msg = new SpeechSynthesisUtterance();
+let msg;
 let voices = [];
+let isSpeaking = false;
 
 const voicesDropdown = document.querySelector('[name="voice"]');
 const options = document.querySelectorAll('[type="range"], [name="text"]');
 const speakButton = document.querySelector('#speak');
 const stopButton = document.querySelector('#stop');
+const textArea = document.querySelector('[name="text"]');
+const rateSlider = document.querySelector('[name="rate"]');
+const pitchSlider = document.querySelector('[name="pitch"]');
 
-let isSpeaking = false;
-
-// Get available voices
+// Load available voices
 function populateVoices() {
   voices = synth.getVoices();
 
-  voicesDropdown.innerHTML = '<option value="">Select A Voice</option>';
+  voicesDropdown.innerHTML = "";
+
+  if (voices.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No voices available";
+    voicesDropdown.appendChild(option);
+    return;
+  }
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Select A Voice";
+  voicesDropdown.appendChild(defaultOption);
 
   voices.forEach((voice, index) => {
     const option = document.createElement("option");
@@ -23,45 +37,35 @@ function populateVoices() {
     option.textContent = `${voice.name} (${voice.lang})`;
     voicesDropdown.appendChild(option);
   });
+
+  const defaultIndex = voices.findIndex(voice => voice.default);
+  if (defaultIndex !== -1) {
+    voicesDropdown.value = String(defaultIndex);
+  }
 }
 
-// Load voices
+// Fetch voices when available
 populateVoices();
 synth.addEventListener("voiceschanged", populateVoices);
 
 // Set selected voice
 function setVoice() {
-  const selectedVoice = voices[Number(voicesDropdown.value)];
+  const selectedIndex = Number(voicesDropdown.value);
 
-  if (selectedVoice) {
-    msg.voice = selectedVoice;
+  if (voicesDropdown.value !== "" && voices[selectedIndex]) {
+    msg.voice = voices[selectedIndex];
   }
 }
 
-// Update rate, pitch and text
-function setOption() {
-  const text = document.querySelector('[name="text"]').value;
-  const rate = document.querySelector('[name="rate"]').value;
-  const pitch = document.querySelector('[name="pitch"]').value;
-
-  msg.text = text;
-  msg.rate = Number(rate);
-  msg.pitch = Number(pitch);
-
-  // Restart speech if settings change during playback
-  if (isSpeaking) {
-    speak();
-  }
-}
-
-// Speak function
+// Speak text
 function speak() {
-  const text = document.querySelector('[name="text"]').value;
+  const text = textArea.value;
 
   if (!text.trim()) {
     return;
   }
 
+  // Refresh voices if none are available
   if (voices.length === 0) {
     populateVoices();
 
@@ -70,14 +74,14 @@ function speak() {
     }
   }
 
-  // Stop previous speech
+  // Stop previous speech before restarting
   synth.cancel();
 
-  // Create a new utterance
+  // Create a fresh utterance with current settings
   msg = new SpeechSynthesisUtterance(text);
 
-  msg.rate = Number(document.querySelector('[name="rate"]').value);
-  msg.pitch = Number(document.querySelector('[name="pitch"]').value);
+  msg.rate = Number(rateSlider.value);
+  msg.pitch = Number(pitchSlider.value);
 
   setVoice();
 
@@ -93,20 +97,26 @@ function speak() {
   isSpeaking = true;
 }
 
-// Stop speech
+// Stop speech immediately
 function stop() {
   synth.cancel();
   isSpeaking = false;
+}
+
+// Update settings while speaking
+function setOption() {
+  if (isSpeaking) {
+    speak();
+  }
 }
 
 // Event listeners
 speakButton.addEventListener("click", speak);
 stopButton.addEventListener("click", stop);
 
-options.forEach(option => {
-  option.addEventListener("change", setOption);
-  option.addEventListener("input", setOption);
-});
+// Update pitch and rate dynamically
+rateSlider.addEventListener("input", setOption);
+pitchSlider.addEventListener("input", setOption);
 
 // Change voice during speech
 voicesDropdown.addEventListener("change", () => {
